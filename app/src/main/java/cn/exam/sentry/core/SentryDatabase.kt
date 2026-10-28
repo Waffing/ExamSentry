@@ -14,7 +14,12 @@ internal interface SentryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun incident(value: IncidentEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun probe(value: ProbeEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun coverage(value: CoverageEntity)
-    @Query("SELECT * FROM sessions ORDER BY startedWall DESC") suspend fun sessions(): List<SessionEntity>
+    // Event insertion order survives both heartbeat updates and changes to the device clock.
+    @Query("SELECT * FROM sessions ORDER BY (SELECT rowid FROM events WHERE sessionId = sessions.id ORDER BY seq ASC LIMIT 1) DESC, startedWall DESC") suspend fun sessions(): List<SessionEntity>
+    @Query("DELETE FROM events WHERE sessionId IN (:ids)") suspend fun deleteEvents(ids: List<String>)
+    @Query("DELETE FROM incidents WHERE sessionId IN (:ids)") suspend fun deleteIncidents(ids: List<String>)
+    @Query("DELETE FROM coverage WHERE sessionId IN (:ids)") suspend fun deleteCoverage(ids: List<String>)
+    @Query("DELETE FROM sessions WHERE id IN (:ids)") suspend fun deleteSessions(ids: List<String>)
     @Query("SELECT * FROM sessions WHERE id = :id") suspend fun sessionById(id: String): SessionEntity?
     @Query("SELECT * FROM sessions WHERE status = 'ACTIVE'") suspend fun unfinished(): List<SessionEntity>
     @Query("SELECT * FROM events WHERE sessionId = :id ORDER BY seq ASC") suspend fun events(id: String): List<EventEntity>

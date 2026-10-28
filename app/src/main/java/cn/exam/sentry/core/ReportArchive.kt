@@ -10,6 +10,7 @@ import android.graphics.pdf.PdfDocument
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import cn.exam.sentry.BuildConfig
 import java.io.File
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -53,7 +54,7 @@ internal object ReportArchive {
         require(format.uppercase(Locale.ROOT) in setOf("JSON", "PDF", "PNG")) { "报告格式无效。" }
         require(EvidenceHash.verify(bundle.events)) { "事件摘要链不完整，停止导出。" }
         val payload = JSONObject().put("schemaVersion", 1).put("rulesVersion", BehaviorRules.VERSION)
-            .put("appVersion", "0.1.0").put("exportedWall", System.currentTimeMillis())
+            .put("appVersion", BuildConfig.VERSION_NAME).put("exportedWall", System.currentTimeMillis())
             .put("session", bundle.session.asJson()).put("events", JSONArray(bundle.events.map { it.asJson() }))
             .put("incidents", JSONArray(bundle.incidents.map { it.asJson() }))
             .put("coverage", JSONArray(bundle.coverage.map { JSONObject().put("phase", it.phase).put("capturedWall", it.capturedWall).put("probes", JSONArray(it.probesJson)) }))
@@ -83,12 +84,14 @@ internal object ReportArchive {
         val stem = "sentry-${bundle.session.id}-${System.currentTimeMillis()}"
         val json = File(directory, "$stem.json")
         json.writeText(archive.toString(2), Charsets.UTF_8)
-        return when (format.uppercase(Locale.ROOT)) {
+        val result = when (format.uppercase(Locale.ROOT)) {
             "JSON" -> json
             "PDF" -> File(directory, "$stem.pdf").also { writePdf(it, bundle, digest, fingerprint, json.name) }
             "PNG" -> File(directory, "$stem.png").also { writeCard(it, bundle, digest) }
             else -> error("报告格式无效。")
         }
+        ReportCache.trim(context, result)
+        return result
     }
 
     fun verify(file: File): String = try {

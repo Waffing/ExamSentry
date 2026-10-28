@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.SystemClock
 import android.view.View
+import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -27,12 +28,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +45,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -51,6 +57,7 @@ import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import cn.exam.sentry.core.SentryRuntime
+import cn.exam.sentry.core.ReportCache
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -60,13 +67,14 @@ import java.util.Locale
 import java.util.UUID
 
 @Composable
-fun BrowserLab(sessionId: String?) {
+fun BrowserLab(sessionId: String?, modifier: Modifier = Modifier.fillMaxWidth().height(540.dp)) {
     val context = LocalContext.current
-    val pages = remember(sessionId) { BrowserPages(context, sessionId) }
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val pages = remember(sessionId, dark) { BrowserPages(context, sessionId, dark) }
     var current by remember(sessionId) { mutableIntStateOf(0) }
     var secondOpen by remember(sessionId) { mutableStateOf(false) }
     DisposableEffect(pages) { onDispose { pages.destroy() } }
-    Column(Modifier.fillMaxWidth().height(540.dp)) {
+    Column(modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp)) {
             Text("浏览器专项", modifier = Modifier.weight(1f).padding(top = 14.dp), style = MaterialTheme.typography.titleSmall)
             IconButton(onClick = { secondOpen = true; current = 1 }) {
@@ -100,7 +108,17 @@ fun BrowserLab(sessionId: String?) {
     }
 }
 
-private class BrowserPages(private val context: Context, private val sessionId: String?) {
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BrowserLabScreen(sessionId: String?, onBack: () -> Unit) {
+    Scaffold(topBar = {
+        TopAppBar(title = { Text("浏览器专项实测") }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回实测考场") }
+        })
+    }) { padding -> BrowserLab(sessionId, Modifier.fillMaxSize().padding(padding)) }
+}
+
+private class BrowserPages(private val context: Context, private val sessionId: String?, private val dark: Boolean) {
     private val watermarkSession = sessionId ?: UUID.randomUUID().toString()
     private val loader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -126,6 +144,12 @@ private class BrowserPages(private val context: Context, private val sessionId: 
     }
 
     private fun makePage(tabId: String): WebView = WebView(context).apply {
+        setBackgroundColor(if (dark) Color.rgb(23, 28, 32) else Color.rgb(245, 248, 247))
+        isVerticalScrollBarEnabled = true
+        setOnTouchListener { view, event ->
+            view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked != MotionEvent.ACTION_UP && event.actionMasked != MotionEvent.ACTION_CANCEL)
+            false
+        }
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.allowFileAccess = false
@@ -173,7 +197,8 @@ private class BrowserPages(private val context: Context, private val sessionId: 
             }
         }
         loadUrl(Uri.parse("$ORIGIN/assets/lab/index.html").buildUpon()
-            .appendQueryParameter("sid", watermarkSession).appendQueryParameter("tab", tabId).build().toString())
+            .appendQueryParameter("sid", watermarkSession).appendQueryParameter("tab", tabId)
+            .appendQueryParameter("theme", if (dark) "dark" else "light").build().toString())
     }
 
     fun reload(index: Int) { views.getOrNull(index)?.reload() }
@@ -217,6 +242,7 @@ private class BrowserPages(private val context: Context, private val sessionId: 
         val file = File(directory, "browser-card-${UUID.randomUUID()}.png")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+        ReportCache.trim(context, file)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"

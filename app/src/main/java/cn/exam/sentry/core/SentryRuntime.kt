@@ -35,6 +35,7 @@ object SentryRuntime {
     private var rules = BehaviorRules()
     private var foregroundTracker: ForegroundTracker? = null
     private var staleHeartbeat = false
+    private var compactPending = false
 
     @Synchronized
     fun init(context: Context) {
@@ -81,6 +82,7 @@ object SentryRuntime {
         foregroundTracker = ForegroundTracker(target, allowed, transient)
         coverage(session.id, "BASELINE")
         append(session, "SESSION_STARTED", "RUNTIME", "${if (config.mode == "LAB") "实测" else "监测"}会话开始", JSONObject().put("rulesVersion", BehaviorRules.VERSION).put("targetPackage", target).put("onlineCheck", config.onlineCheck).toString(), 0)
+        retainSessions()
         if (target == app.packageName) processSignals(session, foregroundTracker?.observe(target, elapsed).orEmpty(), "ACTIVITY")
         publish()
         session
@@ -95,6 +97,8 @@ object SentryRuntime {
         current = null
         staleHeartbeat = false
         foregroundTracker = null
+        retainSessions()
+        compactIfIdle()
         publish()
     }
 
@@ -190,6 +194,30 @@ object SentryRuntime {
             coverage(session.id, "RECOVERY")
         }
         current = null
+        retainSessions()
+        compactIfIdle()
+        ReportCache.trim(app)
+    }
+
+    private suspend fun retainSessions() {
+        val sessions = dao.sessions()
+        val keep = (listOfNotNull(current?.id) + sessions.map { it.id }).distinct().take(8).toSet()
+        val expired = sessions.map { it.id }.filterNot { it in keep }
+        if (expired.isEmpty()) return
+        database.withTransaction {
+            dao.deleteIncidents(expired)
+            dao.deleteCoverage(expired)
+            dao.deleteEvents(expired)
+            dao.deleteSessions(expired)
+        }
+        compactPending = true
+    }
+
+    private fun compactIfIdle() {
+        if (!compactPending || current != null) return
+        database.openHelper.writableDatabase.execSQL("VACUUM")
+        database.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+        compactPending = false
     }
 
     private suspend fun processSignals(session: SessionEntity, signals: List<CollectedSignal>, source: String, observedElapsed: Long = SystemClock.elapsedRealtime(), observedWall: Long = System.currentTimeMillis()) {

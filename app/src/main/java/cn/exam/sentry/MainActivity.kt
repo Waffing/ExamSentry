@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         media = MediaMonitor(this)
         setContent {
             val state by SentryRuntime.state.collectAsStateWithLifecycle()
-            LaunchedEffect(state.activeSession?.id) { if (state.activeSession != null) signals.refreshForSession() }
+            LaunchedEffect(state.activeSession?.id) { signals.refreshForSession() }
             SentryApp(this, media) { signals.setProtection(it) }
         }
     }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,7 +40,8 @@ import cn.exam.sentry.core.*
 import cn.exam.sentry.detectors.EnvironmentScanner
 import cn.exam.sentry.detectors.MonitoringService
 import cn.exam.sentry.detectors.PermissionTools
-import cn.exam.sentry.lab.BrowserLab
+import cn.exam.sentry.lab.BrowserLabScreen
+import cn.exam.sentry.lab.PracticalChecks
 import cn.exam.sentry.lab.NativeExamLab
 import cn.exam.sentry.media.MediaMonitor
 import kotlinx.coroutines.Dispatchers
@@ -81,8 +83,10 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
     val prefs = remember { context.getSharedPreferences("sentry_settings", 0) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val pageScroll = rememberScrollState()
+    val labState = rememberSaveableStateHolder()
     var settings by remember { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
+    var browser by rememberSaveable { mutableStateOf(false) }
     var darkPreference by rememberSaveable { mutableIntStateOf(prefs.getInt("theme", 0)) }
     val dark = if (darkPreference == 0) isSystemInDarkTheme() else darkPreference == 2
     val snack = remember { SnackbarHostState() }
@@ -104,6 +108,10 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
     val preview = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
     val active = state.activeSession
     val activeLab = active?.mode == "LAB"
+    DisposableEffect(active?.id) {
+        val key = "lab:${active?.id}"
+        onDispose { labState.removeState(key) }
+    }
 
     fun inform(message: String) { scope.launch { snack.showSnackbar(message) } }
     fun start(mode: String) {
@@ -140,6 +148,7 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                 runCatching {
                     val file = File(context.cacheDir, "reports/import-${System.currentTimeMillis()}.json")
                     file.parentFile?.mkdirs()
+                    try {
                     context.contentResolver.openInputStream(uri).use { input ->
                         requireNotNull(input) { "无法打开文件" }
                         file.outputStream().use { out ->
@@ -149,6 +158,7 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                         }
                     }
                     SentryRuntime.verify(file)
+                    } finally { file.delete() }
                 }.getOrElse { "校验失败：${it.message}" }
             }
             verification = result
@@ -173,18 +183,22 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
             exportBusy = false
         }
     }
-    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { scanner.scan() } }
     LaunchedEffect(active?.id) {
-        if (!activeLab) { protection = false; setProtection(false); media.stopAll() }
+        if (!activeLab) { browser = false; protection = false; setProtection(false); media.stopAll() }
         while (active != null) { elapsed = ((SystemClock.elapsedRealtime() - active.startedElapsed) / 1000).coerceAtLeast(0); delay(1000) }
     }
     DisposableEffect(Unit) { onDispose { setProtection(false) } }
-    LaunchedEffect(tab, about) { pageScroll.scrollTo(0); if (tab != 2 || about) media.stopAll() }
+    LaunchedEffect(tab, about, browser) { if (!browser) pageScroll.scrollTo(0); if (tab != 2 || about || browser) media.stopAll() }
 
     MaterialTheme(colorScheme = if (dark) DarkScheme else LightScheme, shapes = SentryShapes, typography = SentryTypography) {
         if (about) {
             BackHandler { about = false }
             AboutScreen(onBack = { about = false })
+            return@MaterialTheme
+        }
+        if (browser && activeLab) {
+            BackHandler { browser = false }
+            BrowserLabScreen(active?.id) { browser = false }
             return@MaterialTheme
         }
         Scaffold(
@@ -238,7 +252,7 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                         state.incidents.take(3).forEach { IncidentRow(it) { selectedIncident = it } }
                         SectionTitle("检测覆盖", Icons.Outlined.Sensors, "${state.probes.size} 项")
                         state.probes.sortedBy { probeOrder(it.status) }.forEach { ProbeRow(it) }
-                        if (state.probes.isEmpty()) EmptyLine("正在读取设备状态", "首次检查中")
+                        if (state.probes.isEmpty()) EmptyLine("尚未检查设备状态", "点刷新状态，或主动开始监测；打开 App 不会自动扫描")
                         TextButton(onClick = { scope.launch { withContext(Dispatchers.IO) { scanner.scan() }; inform("设备状态已刷新") } }) { Icon(Icons.Outlined.Refresh, null); Spacer(Modifier.width(6.dp)); Text("刷新状态") }
                     }
                     1 -> {
@@ -267,7 +281,10 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                             Button(onClick = { begin("LAB") }, enabled = active == null, modifier = Modifier.fillMaxWidth().height(48.dp)) { Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("开始实测会话") }
                         } else {
                             Text("实测中 · ${formatDuration(elapsed)} · ${active?.id?.take(8)}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                            NativeExamLab(active?.id, protection) { protection = it; setProtection(it) }
+                            labState.SaveableStateProvider("lab:${active?.id}") {
+                                NativeExamLab(active?.id, protection) { protection = it; setProtection(it) }
+                                PracticalChecks(active?.id)
+                            }
                             SectionTitle("现场辅助", Icons.Outlined.Videocam)
                             ToggleRow("视觉检测", if (mediaState.cameraRunning) "人脸 ${mediaState.faceCount ?: "待识别"} · ${mediaState.quality}" else "未开启", mediaState.cameraRunning) { enabled ->
                                 if (!enabled) media.stopCamera() else if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) media.startCamera(activity, preview) else { PermissionTools.beginSystemPermissionFlow(); cameraPermission.launch(Manifest.permission.CAMERA) }
@@ -278,16 +295,18 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                             }
                             if (mediaState.error != null) Text(mediaState.error.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                             SectionTitle("浏览器专项", Icons.Outlined.Language)
-                            BrowserLab(active?.id)
+                            Text("离线渲染、缩放、双页面与水印核验，独立全屏操作。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(onClick = { browser = true }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Icon(Icons.Outlined.OpenInFull, null); Spacer(Modifier.width(8.dp)); Text("进入浏览器专项") }
                             OutlinedButton(onClick = { context.startService(Intent(context, MonitoringService::class.java).setAction(MonitoringService.ACTION_STOP)); media.stopAll(); setProtection(false); protection = false }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Stop, null); Spacer(Modifier.width(8.dp)); Text("结束实测") }
                         }
                     }
                     3 -> {
                         SectionTitle("检测报告", Icons.Outlined.Description)
+                        Text("仅保留最近 8 份会话，含实测与监测；新建第 9 份时自动清理最旧一份。重要记录请提前导出保存。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(onClick = { importReport.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Icon(Icons.Outlined.FactCheck, null); Spacer(Modifier.width(8.dp)); Text("校验已导出的 JSON") }
                         if (exportBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                         if (state.sessions.isEmpty()) EmptyLine("尚无报告", "结束会话后保留记录")
-                        state.sessions.sortedByDescending { it.startedWall }.forEach { session ->
+                        state.sessions.forEach { session ->
                             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { Text(session.label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f)); StatusLabel(sessionStatus(session.status), if (session.status == "INTERRUPTED") Amber else MaterialTheme.colorScheme.primary) }
@@ -307,7 +326,7 @@ fun SentryApp(activity: ComponentActivity, media: MediaMonitor, setProtection: (
                 listOf("跟随系统", "浅色", "深色").forEachIndexed { i, name -> Row(Modifier.fillMaxWidth().clickable { darkPreference = i; prefs.edit().putInt("theme", i).apply() }, verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = darkPreference == i, onClick = { darkPreference = i; prefs.edit().putInt("theme", i).apply() }); Text(name) } }
                 Hairline()
                 SettingRow("关于考境哨兵", "作者、项目地址与联系方式", Icons.Outlined.Info) { settings = false; about = true }
-                Text("数据保存在本机。音视频检测只保存统计结果，原始画面与录音不落盘。报告由使用者主动导出。", style = MaterialTheme.typography.bodySmall)
+                Text("仅保留最近 8 份会话。打开 App 不自动扫描；检测由手动刷新或开始会话触发。音视频只保存统计结果，原始画面与录音不落盘。", style = MaterialTheme.typography.bodySmall)
                 Text("异常记录需人工复核。其他设备拍摄和本机无法访问的行为不在检测覆盖范围内。", style = MaterialTheme.typography.bodySmall)
             }
         }, confirmButton = { TextButton(onClick = { settings = false }) { Text("完成") } })

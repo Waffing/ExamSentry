@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   const parameters = new URL(location.href).searchParams;
+  document.documentElement.dataset.theme = parameters.get('theme') === 'dark' ? 'dark' : 'light';
   const sid = (parameters.get('sid') || 'preview').slice(0, 128);
   const tab = (parameters.get('tab') || 'single').slice(0, 128);
   const started = performance.now();
@@ -21,7 +22,9 @@
     time.textContent = ((performance.now() - started) / 1000).toFixed(1);
     text.textContent = (names[kind] || kind) + ' · ' + JSON.stringify(record.detail);
     item.append(time, text);
+    const offset = list.scrollTop;
     list.prepend(item);
+    if (offset > 4) list.scrollTop = offset + item.getBoundingClientRect().height;
     if (list.children.length > 60) list.lastChild.remove();
     document.getElementById('event-count').textContent = (++count) + ' 条';
     if (window.SentryBridge && typeof SentryBridge.postMessage === 'function') SentryBridge.postMessage(JSON.stringify(record));
@@ -102,7 +105,12 @@
     lastScale = scale;
   }, 400);
   addEventListener('resize', reportViewport); if (viewport) viewport.addEventListener('resize', reportViewport); reportViewport();
-  addEventListener('scroll', throttle(function () { emit('BROWSER_SCROLL', { scrollY: Math.round(scrollY) }); }, 750), { passive: true });
+  // A settled position keeps the live signal list from extending the page during a gesture.
+  let scrollTimer;
+  addEventListener('scroll', function () {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(function () { emit('BROWSER_SCROLL', { scrollY: Math.round(scrollY) }); }, 350);
+  }, { passive: true });
   addEventListener('focus', function () { emit('BROWSER_FOCUS', { focused: true }); });
   addEventListener('blur', function () { emit('BROWSER_FOCUS', { focused: false }); });
   document.addEventListener('visibilitychange', function () { emit('BROWSER_VISIBILITY', { visible: !document.hidden }); });
