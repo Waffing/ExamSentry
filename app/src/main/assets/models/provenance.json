@@ -1,0 +1,17 @@
+{
+  "name": "Silero VAD",
+  "version": "v6.2",
+  "repository": "https://github.com/snakers4/silero-vad",
+  "commit": "be95df9152c0d7618fa1edfeb296fc3dae32376f",
+  "source": "https://raw.githubusercontent.com/snakers4/silero-vad/be95df9152c0d7618fa1edfeb296fc3dae32376f/src/silero_vad/data/silero_vad.onnx",
+  "file": "silero_vad_v6.2.onnx",
+  "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+  "bytes": 2327524,
+  "license": "MIT; see LICENSE-silero.txt",
+  "sampleRate": 16000,
+  "newSamplesPerFrame": 512,
+  "contextSamples": 64,
+  "stateShape": [2, 1, 128],
+  "verification": "CPU ONNX Runtime loaded input/state/sr. Silence returned 0.00167. A 20-second section of the upstream test.wav produced 624 finite streaming outputs, range 0.001322 to 0.999997, with 440 frames >= 0.5. Live Android microphone and speech/music discrimination require device testing.",
+  "testAudioSource": "https://raw.githubusercontent.com/snakers4/silero-vad/be95df9152c0d7618fa1edfeb296fc3dae32376f/tests/data/test.wav"
+}

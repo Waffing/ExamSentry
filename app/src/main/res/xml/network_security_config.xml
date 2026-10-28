@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Bundled inference needs no remote model or diagnostics endpoint. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors><certificates src="@raw/offline_trust_root" /></trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">api64.ipify.org</domain>
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,3 @@
+<resources>
+    <string name="accessibility_service_description">在你主动开始监测后，读取窗口所属应用、类型和边界，以补充应用切换、分屏与覆盖层线索。不会读取屏幕文字、输入内容、账号、密码或截图。可随时在系统设置中停用。</string>
+</resources>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=4">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<title>考境哨兵 · 浏览器实测</title>
+<link rel="stylesheet" href="lab.css">
+<script src="watermark.js" defer></script>
+<script src="lab.js" defer></script>
+</head>
+<body>
+<header><span class="dot"></span><b>离线实测</b><span id="page-state">探针初始化</span></header>
+<section>
+<div class="section-title">渲染与会话<span id="peer-count">1 个页面</span></div>
+<dl><dt>环境</dt><dd id="device-value">等待读取</dd><dt>Canvas</dt><dd id="canvas-value">等待渲染</dd><dt>WebGL</dt><dd id="gl-value">等待检测</dd><dt>WebRTC</dt><dd id="rtc-value">等待候选</dd><dt>可视区</dt><dd id="viewport-value">—</dd></dl>
+<canvas id="fingerprint" width="260" height="62" aria-label="实际 Canvas 渲染样本"></canvas>
+</section>
+<section>
+<div class="section-title">模拟答题</div>
+<div class="question">哪个操作会使当前页面失去可见性？</div>
+<div id="answers"><button data-answer="A">A　滚动页面</button><button data-answer="B">B　切换应用</button><button data-answer="C">C　点击选项</button></div>
+<div class="actions"><button id="submit" class="primary">提交实测答案</button><span id="answer-state">尚未选择</span></div>
+</section>
+<section>
+<div class="section-title">剪贴板与水印</div>
+<p id="wm-sample" class="sample">考境哨兵本地实测样本 · 会话水印</p>
+<div class="actions"><button id="copy-sample">复制水印样本</button><button id="check-watermark">核验输入水印</button></div>
+<textarea id="paste-area" placeholder="粘贴区" aria-label="粘贴与水印核验区" rows="3" autocomplete="off" spellcheck="false"></textarea>
+<div id="watermark-state" class="muted">未核验</div>
+</section>
+<section>
+<div class="section-title">本页实时信号<span id="event-count">0 条</span></div>
+<ol id="events" aria-live="polite"></ol>
+</section>
+<footer id="session-label"></footer>
+</body>
+</html>
