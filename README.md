@@ -4,6 +4,8 @@
 
 [下载预览版](https://github.com/Waffing/ExamSentry/releases/tag/v0.2.0) · [更新说明](CHANGELOG.md) · [版本记录](https://github.com/Waffing/ExamSentry/releases) · [反馈问题](https://github.com/Waffing/ExamSentry/issues) · [联系作者](mailto:203458615@qq.com)
 
+**安卓手机推荐：[下载 ARM64 安装包（真我 Neo8 选这个）](https://github.com/Waffing/ExamSentry/releases/download/v0.2.0/ExamSentry-0.2.0-arm64-v8a.apk)。** 文件名为 `ExamSentry-0.2.0-arm64-v8a.apk`；`x86`、`x86_64` 包用于对应架构设备，真我 Neo8 不能使用。
+
 作者 **Waffing**。当前发行 **0.2.0-preview**，Git 标签 `v0.2.0`，应用内版本 `0.2.0`。项目自有代码使用 [MIT 许可](LICENSE)。
 
 ## 能做什么
@@ -31,10 +33,12 @@ Android 8.0 / API 26 起可安装。无需账号或教师服务器。
 |---|---|---|
 | `arm64-v8a` | 36.41 MB | 大多数现代安卓手机，通常优先选择 |
 | `armeabi-v7a` | 27.89 MB | 仅支持 32 位 ARM 的旧设备 |
-| `x86_64` | 41.42 MB | 对应架构的设备或模拟器 |
-| `x86` | 40.96 MB | 对应架构的设备或模拟器 |
+| `x86_64` | 41.42 MB | 仅限 x86_64 设备或模拟器；真我 Neo8 不适用 |
+| `x86` | 40.96 MB | 仅限 x86 设备或模拟器；真我 Neo8 不适用 |
 
 不再将四套原生库放入同一个通用 APK，配合 R8 和资源压缩减少下载及安装占用。请不要同时安装四份；升级须使用本机支持的架构与原发行签名。
+
+若真我 Neo8 安装 `ExamSentry-0.2.0-x86.apk` 提示“安装失败”，请改用上方 ARM64 包。选错架构无需卸载原有应用；未安装成功的 APK 也不会产生一份已安装应用。本次调整下载指引，APK 与原发行签名保持一致，版本号仍为 0.2.0。
 
 大小按 1 MB = 1,000,000 字节计算。ARM64 包相较 0.1.0 通用包（122.10 MB）减少约 70.18%；这是安装包大小比较，未测量安装后的实际占用。
 
