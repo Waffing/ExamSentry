@@ -4,7 +4,7 @@
 
 [下载预览版](https://github.com/Waffing/ExamSentry/releases/tag/v0.2.0) · [更新说明](CHANGELOG.md) · [版本记录](https://github.com/Waffing/ExamSentry/releases) · [反馈问题](https://github.com/Waffing/ExamSentry/issues) · [联系作者](mailto:203458615@qq.com)
 
-**安卓手机推荐：[下载 ARM64 安装包（真我 Neo8 选这个）](https://github.com/Waffing/ExamSentry/releases/download/v0.2.0/ExamSentry-0.2.0-arm64-v8a.apk)。** 文件名为 `ExamSentry-0.2.0-arm64-v8a.apk`；`x86`、`x86_64` 包用于对应架构设备，真我 Neo8 不能使用。
+**安卓手机推荐：[下载 ARM64 安装包](https://github.com/Waffing/ExamSentry/releases/download/v0.2.0/ExamSentry-0.2.0-arm64-v8a.apk)。** 文件名为 `ExamSentry-0.2.0-arm64-v8a.apk`；`x86`、`x86_64` 包用于对应架构设备，真我 Neo8 不能使用。
 
 作者 **Waffing**。当前发行 **0.2.0-preview**，Git 标签 `v0.2.0`，应用内版本 `0.2.0`。项目自有代码使用 [MIT 许可](LICENSE)。
 
